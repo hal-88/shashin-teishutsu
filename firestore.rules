@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 先生：common.js の TEACHER_EMAIL と同じアドレスでログインした人だけ
+    function isTeacher() {
+      return request.auth != null
+        && request.auth.token.email == 'sensei@example.com';
+    }
+
+    // 児童の写真：1枚＝1ドキュメント（ID は「6-1_5_1」＝クラス_番号_何枚目）
+    function validPhoto(photoId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['cls', 'no', 'idx', 'data', 'w', 'h', 'updatedAt'])
+        && d.keys().hasAll(['cls', 'no', 'idx', 'data', 'w', 'h', 'updatedAt'])
+        && d.cls is string && d.cls.matches('[0-9]{1,2}-[0-9]{1,2}')
+        && d.no is int && d.no >= 1 && d.no <= 40
+        && d.idx is int && d.idx >= 1 && d.idx <= 3
+        && photoId == d.cls + '_' + string(d.no) + '_' + string(d.idx)
+        && d.data is bytes && d.data.size() <= 900 * 1024
+        && d.w is int && d.h is int && d.w <= 2000 && d.h <= 2000
+        && d.updatedAt == request.time;
+    }
+
+    match /photos/{photoId} {
+      allow read, delete: if isTeacher();          // 見る・消すのは先生だけ
+      allow create, update: if validPhoto(photoId); // 送る（上書き）はログインなしでOK
+    }
+  }
+}

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>写真ていしゅつ（先生）</title>
+<style>
+  :root{
+    --bg:#f6f3ec; --card:#fff; --ink:#2a2723; --sub:#77706a; --line:#e3dccf;
+    --main:#2f6f8f; --main-dark:#1f5069; --main-soft:#e3f0f6;
+    --ok:#2f7d4f; --ok-soft:#e3f3e8; --err:#b8402f; --err-soft:#fbe7e3; --warn:#9a5b00; --warn-soft:#fff1d6;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Hiragino Kaku Gothic ProN","BIZ UDPGothic","Meiryo",system-ui,sans-serif;-webkit-text-size-adjust:100%}
+  body{padding:16px 16px 60px}
+  .wrap{max-width:1100px;margin:0 auto}
+  button{font:inherit;cursor:pointer}
+  .demo{background:#fff6dc;color:#8a6200;border:1px dashed #d9b75a;border-radius:10px;padding:8px 12px;font-size:13px;margin-bottom:14px}
+
+  /* ログイン */
+  #login{max-width:380px;margin:12vh auto 0;background:var(--card);border:2px solid var(--line);border-radius:18px;padding:24px}
+  #login h1{margin:0 0 16px;font-size:22px;text-align:center}
+  #login input{width:100%;font:inherit;font-size:20px;padding:12px 14px;border:2px solid var(--line);border-radius:12px}
+  #login input:focus{outline:none;border-color:var(--main)}
+  #login button{width:100%;margin-top:12px;font-size:20px;font-weight:bold;padding:12px 0;border:none;border-radius:12px;
+    background:var(--main);color:#fff}
+  #loginErr{color:var(--err);font-size:14px;min-height:1.4em;margin-top:10px;text-align:center}
+
+  /* ヘッダー */
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:3px solid var(--main);padding-bottom:10px;margin-bottom:14px}
+  header h1{margin:0;font-size:22px;margin-right:auto}
+  .tabs{display:flex;gap:6px}
+  .tabs button{font-size:18px;font-weight:bold;padding:8px 18px;border-radius:10px;border:2px solid var(--line);background:#fff;color:var(--ink)}
+  .tabs button.on{background:var(--main);border-color:var(--main);color:#fff}
+  .tools{display:flex;gap:6px;flex-wrap:wrap}
+  .tools button{font-size:15px;padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+  .tools button.print{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:bold;font-size:16px;padding:8px 20px}
+  .tools button:disabled{opacity:.5;cursor:default}
+
+  .summary{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:16px}
+  .summary .count{font-size:16px}
+  .summary .count b{font-size:28px;color:var(--main);margin:0 2px}
+  .missing{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:14px;color:var(--sub)}
+  .missing .chip{background:var(--warn-soft);color:var(--warn);font-weight:bold;border-radius:999px;padding:3px 12px;font-size:16px;
+    font-variant-numeric:tabular-nums}
+  .missing .all{background:var(--ok-soft);color:var(--ok);font-weight:bold;border-radius:999px;padding:3px 12px;font-size:16px}
+  .msg{color:var(--sub);text-align:center;padding:40px 0;font-size:16px}
+  .msg.err{color:var(--err)}
+
+  /* 一覧（画面ではページの区切りが見えるように） */
+  .page{background:#fff;border:1px solid var(--line);border-radius:6px;padding:18px 20px 6px;margin-bottom:18px;position:relative}
+  .pageno{position:absolute;right:12px;top:6px;font-size:12px;color:var(--sub)}
+  .row{margin-bottom:16px}
+  .label{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+  .label .no{font-size:22px;font-weight:bold}
+  .label .cls{font-size:14px;color:var(--sub)}
+  .label .time{font-size:12px;color:var(--sub);margin-left:auto}
+  .photos{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .frame{aspect-ratio:4/3;background:#f2efe9;border:1px solid #d9d3c8;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .frame img{width:100%;height:100%;object-fit:contain;display:block}
+  .frame .none{color:var(--sub);font-size:13px}
+
+  .danger{margin-top:40px;border-top:1px dashed var(--line);padding-top:16px;text-align:right}
+  .danger button{font-size:14px;padding:8px 14px;border-radius:10px;border:2px solid var(--err);background:#fff;color:var(--err);font-weight:bold}
+
+  dialog{border:none;border-radius:18px;padding:22px;max-width:min(92vw,440px);width:100%;color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  dialog::backdrop{background:rgba(30,25,20,.45)}
+  dialog h3{margin:0 0 10px;color:var(--err)}
+  dialog p{margin:0 0 12px;font-size:15px;line-height:1.6}
+  dialog input{width:100%;font:inherit;font-size:18px;padding:10px 12px;border:2px solid var(--line);border-radius:10px}
+  .dbtns{display:flex;gap:10px;margin-top:14px}
+  .dbtns button{flex:1;font-size:16px;font-weight:bold;padding:10px 0;border-radius:10px}
+  .dbtns .no{background:#fff;border:2px solid var(--line);color:var(--ink)}
+  .dbtns .yes{background:var(--err);border:none;color:#fff}
+  .dbtns .yes:disabled{background:#d9c9c5;cursor:default}
+
+  /* ===== 印刷：A4横・1ページ2人・番号と写真だけ ===== */
+  @page{size:A4 landscape;margin:8mm}
+  @media print{
+    html,body{background:#fff}
+    body{padding:0}
+    .wrap{max-width:none}
+    .noprint,header,.summary,.danger,.demo,.pageno,.label .time,dialog{display:none !important}
+    .page{border:none;border-radius:0;padding:0;margin:0;break-after:page;page-break-after:always}
+    .page:last-child{break-after:auto;page-break-after:auto}
+    .row{break-inside:avoid;page-break-inside:avoid;margin:0 0 9mm}
+    .label{margin-bottom:2mm}
+    .label .no{font-size:16pt}
+    .label .cls{font-size:10pt;color:#555}
+    .photos{gap:4mm}
+    .frame{background:#fff;border:0.3mm solid #aaa}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="demo" class="demo noprint" hidden>デモモード：Firebaseが未設定なので、この端末の中のデータを表示しています（パスワードは何でも入れます）。
+    <button id="sample" style="margin-left:8px;font-size:13px;padding:3px 10px;border-radius:8px;border:1px solid #d9b75a;background:#fff;color:#8a6200">サンプルを入れる</button></div>
+
+  <form id="login" hidden>
+    <h1>先生ページ</h1>
+    <input id="pw" type="password" placeholder="パスワード" autocomplete="current-password">
+    <button type="submit">ひらく</button>
+    <div id="loginErr"></div>
+  </form>
+
+  <div id="app" hidden>
+    <header>
+      <h1>写真ていしゅつ（先生）</h1>
+      <div class="tabs" id="tabs"></div>
+      <div class="tools">
+        <button id="reload">更新</button>
+        <button id="print" class="print">印刷</button>
+        <button id="logout">ログアウト</button>
+      </div>
+    </header>
+    <section class="summary" id="summary"></section>
+    <main id="sheet"></main>
+    <div class="danger"><button id="delAll">全データ削除</button></div>
+  </div>
+</div>
+
+<dialog id="delDlg">
+  <h3>全データを削除します</h3>
+  <p>全クラスの写真がすべて消えます。<b>元にはもどせません。</b><br>よければ下に「さくじょ」と入力してください。</p>
+  <input id="delInput" autocomplete="off" placeholder="さくじょ">
+  <div class="dbtns">
+    <button class="no" id="delNo">やめる</button>
+    <button class="yes" id="delYes" disabled>削除する</button>
+  </div>
+</dialog>
+
+<script type="module">
+import { CLASSES, PHOTO_COUNT, PER_PAGE, configured, backend } from "./common.js";
+
+const $ = id => document.getElementById(id);
+const TAB = "shashin-teishutsu-tab";
+let current = CLASSES[0].id;
+try { const t = localStorage.getItem(TAB); if (CLASSES.some(c => c.id === t)) current = t; } catch (e) {}
+let urls = [];
+let loading = false;
+
+if (!configured) {
+  $("demo").hidden = false;
+  $("sample").onclick = async () => {
+    $("sample").disabled = true; $("sample").textContent = "作成中…";
+    await backend.fillSample();
+    $("sample").disabled = false; $("sample").textContent = "サンプルを入れる";
+    if (!$("app").hidden) load();
+  };
+  // ?sample をつけて開くと、ログイン済み・サンプル入りで開く（お試し用）
+  if (new URLSearchParams(location.search).has("sample")) {
+    backend.fillSample().then(() => backend.login(""));
+  }
+}
+
+/* ---- ログイン ---- */
+backend.onAuth(ok => {
+  $("login").hidden = ok;
+  $("app").hidden = !ok;
+  if (ok) load(); else setTimeout(() => $("pw").focus(), 0);
+});
+$("login").onsubmit = async e => {
+  e.preventDefault();
+  $("loginErr").textContent = "";
+  try {
+    await backend.login($("pw").value);
+    $("pw").value = "";
+  } catch (err) {
+    const c = err && err.code || "";
+    $("loginErr").textContent =
+      c === "auth/too-many-requests" ? "何度も失敗したので、少し待ってからためしてください" :
+      c === "auth/network-request-failed" ? "ネットにつながっていません" :
+      "パスワードがちがいます";
+  }
+};
+$("logout").onclick = () => backend.logout();
+
+/* ---- クラスのタブ ---- */
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  CLASSES.forEach(c => {
+    const b = document.createElement("button");
+    b.textContent = c.id;
+    b.className = c.id === current ? "on" : "";
+    b.onclick = () => { if (loading || c.id === current) return; current = c.id; try { localStorage.setItem(TAB, current); } catch (e) {} load(); };
+    $("tabs").appendChild(b);
+  });
+}
+
+/* ---- 読み込みと表示 ---- */
+const fmt = ms => {
+  if (!ms) return "";
+  const d = new Date(ms);
+  return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")} 送信`;
+};
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+async function load() {
+  renderTabs();
+  loading = true;
+  $("print").disabled = true;
+  $("summary").innerHTML = "";
+  $("sheet").innerHTML = `<div class="msg">読み込み中…（写真が多いと少しかかります）</div>`;
+  try {
+    const list = await backend.loadClass(current);
+    render(list);
+  } catch (e) {
+    console.error(e);
+    $("sheet").innerHTML = `<div class="msg err">読み込めませんでした（${esc(e.code || e.message || e)}）。「更新」を押してください。</div>`;
+  } finally {
+    loading = false;
+  }
+}
+
+function render(list) {
+  urls.forEach(u => URL.revokeObjectURL(u));
+  urls = [];
+  const info = CLASSES.find(c => c.id === current);
+  const byNo = new Map();
+  for (const p of list) {
+    if (!byNo.has(p.no)) byNo.set(p.no, { photos: [], updatedAt: 0 });
+    const s = byNo.get(p.no);
+    s.photos[p.idx - 1] = p;
+    s.updatedAt = Math.max(s.updatedAt, p.updatedAt || 0);
+  }
+  const nos = [...byNo.keys()].sort((a, b) => a - b);
+  const missing = [];
+  for (let n = 1; n <= info.count; n++) if (!byNo.has(n)) missing.push(n);
+
+  $("summary").innerHTML =
+    `<div class="count">${esc(current)}　提出 <b>${nos.length}</b>/ ${info.count}人</div>
+     <div class="missing">${missing.length
+       ? "未提出：" + missing.map(n => `<span class="chip">${n}</span>`).join("")
+       : `<span class="all">全員そろいました</span>`}</div>`;
+
+  if (!nos.length) {
+    $("sheet").innerHTML = `<div class="msg">まだ提出がありません</div>`;
+    return;
+  }
+  let html = "";
+  for (let s = 0, page = 1; s < nos.length; s += PER_PAGE, page++) {
+    html += `<section class="page"><span class="pageno">${page}ページ目</span>`;
+    for (const n of nos.slice(s, s + PER_PAGE)) {
+      const sub = byNo.get(n);
+      html += `<div class="row"><div class="label"><span class="no">${n}番</span><span class="cls">${esc(current)}</span><span class="time">${fmt(sub.updatedAt)}</span></div><div class="photos">`;
+      for (let i = 0; i < PHOTO_COUNT; i++) {
+        const p = sub.photos[i];
+        if (p) { const u = URL.createObjectURL(p.blob); urls.push(u); html += `<div class="frame"><img src="${u}" alt="${n}番 ${i + 1}まいめ"></div>`; }
+        else html += `<div class="frame"><span class="none">なし</span></div>`;
+      }
+      html += `</div></div>`;
+    }
+    html += `</section>`;
+  }
+  $("sheet").innerHTML = html;
+  $("print").disabled = false;
+}
+
+$("reload").onclick = () => { if (!loading) load(); };
+
+/* ---- 印刷 ---- */
+$("print").onclick = async () => {
+  const imgs = [...document.querySelectorAll("#sheet img")];
+  await Promise.all(imgs.map(i => (i.decode ? i.decode() : Promise.resolve()).catch(() => {})));
+  const t = document.title;
+  document.title = `写真ていしゅつ_${current}`;
+  window.print();
+  setTimeout(() => { document.title = t; }, 500);
+};
+
+/* ---- 全データ削除 ---- */
+$("delAll").onclick = () => { $("delInput").value = ""; $("delYes").disabled = true; $("delDlg").showModal(); };
+$("delInput").oninput = () => { $("delYes").disabled = $("delInput").value.trim() !== "さくじょ"; };
+$("delNo").onclick = () => $("delDlg").close();
+$("delYes").onclick = async () => {
+  $("delYes").disabled = true;
+  $("delYes").textContent = "削除中…";
+  try {
+    await backend.deleteAll();
+    $("delDlg").close();
+    load();
+  } catch (e) {
+    console.error(e);
+    alert("削除できませんでした：" + (e.code || e.message || e));
+  } finally {
+    $("delYes").textContent = "削除する";
+  }
+};
+</script>
+</body>
+</html>
