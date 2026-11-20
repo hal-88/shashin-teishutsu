@@ -101,15 +101,17 @@ function fbAuth() {
   return authp;
 }
 
+// photos は 1〜PHOTO_COUNT 枚。使わない枠は「空の写真」（data 0バイト・w=h=0）で上書きして、
+// 前に送った写真が残らないようにする（児童は削除できないルールなので）
 const firebaseBackend = {
   async submit(cls, no, photos) {
     const { fs, db } = await fb();
     const batch = fs.writeBatch(db);
-    for (let i = 0; i < photos.length; i++) {
+    for (let i = 0; i < PHOTO_COUNT; i++) {
       const p = photos[i];
-      const data = fs.Bytes.fromUint8Array(new Uint8Array(await p.blob.arrayBuffer()));
+      const data = fs.Bytes.fromUint8Array(p ? new Uint8Array(await p.blob.arrayBuffer()) : new Uint8Array(0));
       batch.set(fs.doc(db, "photos", photoId(cls, no, i + 1)), {
-        cls, no, idx: i + 1, data, w: p.w, h: p.h, updatedAt: fs.serverTimestamp()
+        cls, no, idx: i + 1, data, w: p ? p.w : 0, h: p ? p.h : 0, updatedAt: fs.serverTimestamp()
       });
     }
     await withTimeout(batch.commit(), 90000);
@@ -117,7 +119,7 @@ const firebaseBackend = {
   async loadClass(cls) {
     const { fs, db } = await fb();
     const snap = await fs.getDocs(fs.query(fs.collection(db, "photos"), fs.where("cls", "==", cls)));
-    return snap.docs.map(d => {
+    return snap.docs.filter(d => d.data().w > 0).map(d => {
       const v = d.data();
       return {
         no: v.no, idx: v.idx, w: v.w, h: v.h,
@@ -201,13 +203,15 @@ const demoBackend = {
     await new Promise(r => setTimeout(r, 600));
     const now = Date.now();
     await idb("readwrite", st => {
-      photos.forEach((p, i) =>
-        st.put({ cls, no, idx: i + 1, w: p.w, h: p.h, blob: p.blob, updatedAt: now }, photoId(cls, no, i + 1)));
+      for (let i = 0; i < PHOTO_COUNT; i++) {
+        const p = photos[i];
+        st.put({ cls, no, idx: i + 1, w: p ? p.w : 0, h: p ? p.h : 0, blob: p ? p.blob : null, updatedAt: now }, photoId(cls, no, i + 1));
+      }
     });
   },
   async loadClass(cls) {
     const all = await idb("readonly", st => st.getAll());
-    return (all || []).filter(v => v.cls === cls);
+    return (all || []).filter(v => v.cls === cls && v.w > 0);
   },
   async deleteAll() {
     await idb("readwrite", st => { st.clear(); });

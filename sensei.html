@@ -60,7 +60,7 @@
   .photos{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
   .frame{aspect-ratio:4/3;background:#f2efe9;border:1px solid #d9d3c8;display:flex;align-items:center;justify-content:center;overflow:hidden}
   .frame img{width:100%;height:100%;object-fit:contain;display:block}
-  .frame .none{color:var(--sub);font-size:13px}
+  .frame.empty{visibility:hidden}
 
   .danger{margin-top:40px;border-top:1px dashed var(--line);padding-top:16px;text-align:right}
   .danger button{font-size:14px;padding:8px 14px;border-radius:10px;border:2px solid var(--err);background:#fff;color:var(--err);font-weight:bold}
@@ -245,11 +245,14 @@ function render(list) {
     html += `<section class="page"><span class="pageno">${page}ページ目</span>`;
     for (const n of nos.slice(s, s + PER_PAGE)) {
       const sub = byNo.get(n);
-      html += `<div class="row"><div class="label"><span class="no">${n}番</span><span class="cls">${esc(current)}</span><span class="time">${fmt(sub.updatedAt)}</span></div><div class="photos">`;
+      const cnt = sub.photos.filter(Boolean).length;
+      html += `<div class="row"><div class="label"><span class="no">${n}番</span><span class="cls">${esc(current)}</span><span class="time">${cnt < PHOTO_COUNT ? cnt + "まい・" : ""}${fmt(sub.updatedAt)}</span></div><div class="photos">`;
+      // 1〜2枚の人は左につめて、残りはあけておく（写真の大きさは全員同じ）
+      const ps = sub.photos.filter(Boolean);
       for (let i = 0; i < PHOTO_COUNT; i++) {
-        const p = sub.photos[i];
+        const p = ps[i];
         if (p) { const u = URL.createObjectURL(p.blob); urls.push(u); html += `<div class="frame"><img src="${u}" alt="${n}番 ${i + 1}まいめ"></div>`; }
-        else html += `<div class="frame"><span class="none">なし</span></div>`;
+        else html += `<div class="frame empty"></div>`;
       }
       html += `</div></div>`;
     }

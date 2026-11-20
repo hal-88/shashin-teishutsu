@@ -52,6 +52,9 @@
   .slot .tag{position:absolute;left:6px;top:6px;background:rgba(0,0,0,.6);color:#fff;font-size:13px;font-weight:bold;
     border-radius:8px;padding:2px 8px;pointer-events:none;display:none}
   .slot.has .tag{display:block}
+  .slot .x{position:absolute;right:6px;top:6px;z-index:2;width:40px;height:40px;border-radius:50%;border:none;
+    background:rgba(0,0,0,.65);color:#fff;font-size:24px;line-height:1;cursor:pointer;display:none;font-family:inherit}
+  .slot.has .x{display:block}
   .slot.busy .in .plus{animation:spin 1s linear infinite;display:inline-block}
   .slot.bad{border-color:var(--err)}
   .slot.bad .m{color:var(--err);font-weight:bold}
@@ -114,9 +117,9 @@
   </section>
 
   <section class="step">
-    <h2><span class="n">3</span>写真を3まい えらぶ</h2>
+    <h2><span class="n">3</span>写真をえらぶ（1〜3まい）</h2>
     <div class="slots" id="slots"></div>
-    <p class="note">わくをタップすると写真をえらべます。まちがえたら、もう一度タップして えらびなおしてね。</p>
+    <p class="note">わくをタップすると写真をえらべます。えらびなおすときは、もう一度タップ。やめるときは右上の × を押してね。</p>
   </section>
 
   <button id="send" disabled>送る</button>
@@ -127,7 +130,7 @@
 <dialog id="confirm">
   <h3>この番号で送ります</h3>
   <div class="who" id="confirmWho"></div>
-  <p>前にも送っていたら、<br>今回の写真に入れかわります。</p>
+  <p><b id="confirmCount"></b><br>前にも送っていたら、<br>今回の写真に入れかわります。</p>
   <div class="dbtns">
     <button class="no" id="cNo">もどる</button>
     <button class="yes" id="cYes">送る</button>
@@ -201,7 +204,8 @@ function buildSlots() {
     el.className = "slot";
     el.innerHTML = `<input type="file" accept="image/*" multiple>
       <div class="in"><span class="k">${i + 1}まいめ</span><span class="plus">＋</span><span class="m">タップしてえらぶ</span></div>
-      <img alt=""><span class="tag">${i + 1}</span>`;
+      <img alt=""><span class="tag">${i + 1}</span><button type="button" class="x" aria-label="${i + 1}まいめをやめる">×</button>`;
+    el.querySelector(".x").addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); clearPhoto(i); });
     const input = el.querySelector("input");
     input.addEventListener("change", () => {
       const files = [...input.files];
@@ -238,23 +242,35 @@ async function setPhoto(i, file) {
     update();
   }
 }
+function clearPhoto(i) {
+  const el = slotEls[i];
+  st.photos[i] = null;
+  if (st.urls[i]) URL.revokeObjectURL(st.urls[i]);
+  st.urls[i] = null;
+  el.classList.remove("has", "bad");
+  el.querySelector("img").removeAttribute("src");
+  el.querySelector(".m").textContent = "タップしてえらぶ";
+  update();
+}
+const chosen = () => st.photos.filter(Boolean);
 window.__setPhoto = setPhoto; // 動作確認用
 
 /* ---- 送るボタン ---- */
 function update() {
-  const left = st.photos.filter(p => !p).length;
   let hint = "";
   if (!st.cls) hint = "クラスをえらんでね";
   else if (!st.no) hint = "出席番号をえらんでね";
   else if (st.busy.some(Boolean)) hint = "写真をじゅんびしています…";
-  else if (left) hint = `写真をあと ${left}まい えらんでね`;
+  else if (!chosen().length) hint = "写真を1まい以上えらんでね";
   $("hint").textContent = hint;
   $("send").disabled = !!hint;
+  $("send").textContent = hint ? "送る" : `写真${chosen().length}まいを送る`;
   $("err").style.display = "none";
 }
 
 $("send").onclick = () => {
   $("confirmWho").textContent = `${st.cls}　${st.no}番`;
+  $("confirmCount").textContent = `写真 ${chosen().length}まい`;
   $("confirm").showModal();
 };
 $("cNo").onclick = () => $("confirm").close();
@@ -262,9 +278,9 @@ $("cYes").onclick = async () => {
   $("confirm").close();
   $("sending").classList.add("show");
   try {
-    await backend.submit(st.cls, st.no, st.photos);
+    await backend.submit(st.cls, st.no, chosen()); // えらんだ写真を前につめて送る
     $("doneWho").textContent = `${st.cls}　${st.no}番`;
-    $("doneThumbs").innerHTML = st.urls.map(u => `<img src="${u}" alt="">`).join("");
+    $("doneThumbs").innerHTML = st.urls.filter(Boolean).map(u => `<img src="${u}" alt="">`).join("");
     $("done").classList.add("show");
   } catch (e) {
     console.error(e);
